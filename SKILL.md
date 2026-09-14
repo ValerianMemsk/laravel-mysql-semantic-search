@@ -11,8 +11,9 @@ This package provides **native SQL vector semantic search** and **hybrid lexical
 
 ### Core Components:
 1. **Embedder Drivers** (`EmbedderManager`):
-   - `ollama`: Uses local HTTP endpoint (e.g. `http://localhost:11434/api/embeddings`) with models like `bge-m3` (1024d) or `nomic-embed-text` (768d).
-   - `openai`: Uses `https://api.openai.com/v1/embeddings` with `text-embedding-3-small` (1536d) or `text-embedding-3-large` (3072d).
+   - `ollama` (built-in default): Uses local HTTP endpoint (e.g. `http://localhost:11434/api/embeddings`) with models like `bge-m3` (1024d) or `nomic-embed-text` (768d).
+   - `openai` (built-in default): Uses `https://api.openai.com/v1/embeddings` with `text-embedding-3-small` (1536d) or `text-embedding-3-large` (3072d).
+   - `custom drivers`: Any model/API (Hugging Face, Cohere, Voyage, TEI, ONNX) can be added by implementing `EmbedderContract` and registering via `EmbedderManager::extend()`.
 2. **Database Vector Drivers** (`VectorDriverContract`):
    - `mariadb`: Uses `VEC_DISTANCE_COSINE(embedding, VEC_FromText(?))` on `VECTOR(N)` columns.
    - `mysql`: Uses `VECTOR_DISTANCE(embedding, STRING_TO_VECTOR(?), 'COSINE')` on `VECTOR(N)` columns.
@@ -155,6 +156,27 @@ $rankedIds = SemanticSearch::combineRRF($semanticIds, $keywordIds, k: 60);
 $results = Product::whereIn('id', array_slice($rankedIds, 0, 20))->get()
     ->sortBy(fn ($p) => array_search($p->id, $rankedIds))
     ->values();
+```
+
+### Pattern C: Registering Custom Embedder Drivers (e.g. Hugging Face, Cohere)
+```php
+// In AppServiceProvider::boot()
+use ValerianMemsk\SemanticSearch\Contracts\EmbedderContract;
+
+$this->app->make('semantic-search.embedder-manager')->extend('huggingface', function ($app) {
+    return new class implements EmbedderContract {
+        public function embed(string $text): array {
+            $res = \Illuminate\Support\Facades\Http::withToken(config('services.hf.key'))
+                ->post('https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-m3', [
+                    'inputs' => $text,
+                ]);
+            return $res->json();
+        }
+        public function dimensions(): int {
+            return 1024;
+        }
+    };
+});
 ```
 
 ---

@@ -27,9 +27,8 @@ This package lets you leverage **native SQL vector search** directly inside your
 - 🧠 **Hybrid Search (RRF)**: Merges semantic vector similarity with traditional keyword search (via Laravel Scout or database `LIKE`) using Reciprocal Rank Fusion.
 - 🗄️ **Native SQL Vector Storage**: Uses MariaDB 11.7+ (`VEC_DISTANCE_COSINE` & `VECTOR(N)`) or MySQL 9.0+ (`VECTOR_DISTANCE`).
 - 🔌 **Pluggable Embedders**:
-  - Local / Self-hosted **Ollama** (`bge-m3`, `nomic-embed-text`, `all-minilm`, etc.)
-  - Cloud **OpenAI** (`text-embedding-3-small`, `text-embedding-3-large`)
-  - Easily extendable for custom embedding APIs
+  - Built-in default support for local/self-hosted **Ollama** (`bge-m3`, `nomic-embed-text`, etc.) and cloud **OpenAI** (`text-embedding-3-small`, `text-embedding-3-large`)
+  - Easily connect **any** model or API (Hugging Face, Cohere, Voyage, local TEI, etc.) via custom drivers
 - ⚡ **Laravel Scout Engine**: Drop-in driver (`SCOUT_DRIVER=semantic`) with automatic fallback to database or Meilisearch if the embedder is unavailable.
 - 📖 **Synonym & Acronym Expansion**: Preprocessor with in-memory caching to expand abbreviations and domain-specific terminology before embedding.
 - 📦 **Automated Background Ingestion**: Automatically dispatches queued jobs on Eloquent model `saved` events.
@@ -44,7 +43,7 @@ This package lets you leverage **native SQL vector search** directly inside your
 | **PHP** | 8.2+ | |
 | **Laravel** | 10.0, 11.0, 12.0+ | |
 | **MariaDB** or **MySQL** | MariaDB 11.7+ or MySQL 9.0+ | Required for native `VECTOR` type |
-| **Embedder** | Ollama or OpenAI | Ollama recommended for self-hosting |
+| **Embedder** | Ollama, OpenAI, or any Custom API | Ollama/OpenAI built-in; any API (Hugging Face, Cohere, etc.) supported via driver |
 
 ---
 
@@ -175,6 +174,63 @@ php artisan semantic-search:embed
 php artisan semantic-search:embed "App\Models\Article"
 ```
 
+### 5. Adding Custom Embedders (e.g. Hugging Face, Cohere)
+
+Ollama and OpenAI are the built-in defaults, but you can plug in **any** embedding API or model (such as Hugging Face Inference API, Text Embeddings Inference (TEI), Cohere, Voyage, or a custom Python service).
+
+1. Implement `ValerianMemsk\SemanticSearch\Contracts\EmbedderContract`:
+
+```php
+namespace App\Search\Embedders;
+
+use Illuminate\Support\Facades\Http;
+use ValerianMemsk\SemanticSearch\Contracts\EmbedderContract;
+
+class HuggingFaceEmbedder implements EmbedderContract
+{
+    public function __construct(
+        protected string $apiKey,
+        protected string $model = 'BAAI/bge-m3',
+        protected int $dimensions = 1024
+    ) {}
+
+    public function embed(string $text): array
+    {
+        $response = Http::withToken($this->apiKey)
+            ->post("https://api-inference.huggingface.co/pipeline/feature-extraction/{$this->model}", [
+                'inputs' => $text,
+            ]);
+
+        return $response->json();
+    }
+
+    public function dimensions(): int
+    {
+        return $this->dimensions;
+    }
+}
+```
+
+2. Register your custom driver in `AppServiceProvider::boot()`:
+
+```php
+use ValerianMemsk\SemanticSearch\Embedders\EmbedderManager;
+use App\Search\Embedders\HuggingFaceEmbedder;
+
+public function boot(): void
+{
+    $this->app->make('semantic-search.embedder-manager')->extend('huggingface', function ($app) {
+        return new HuggingFaceEmbedder(
+            apiKey: config('services.huggingface.key'),
+            model: 'BAAI/bge-m3',
+            dimensions: 1024
+        );
+    });
+}
+```
+
+3. Set `SEMANTIC_SEARCH_DRIVER=huggingface` in your `.env`.
+
 ---
 
 ## 🐳 Local Ollama Quickstart (Docker)
@@ -241,7 +297,7 @@ composer test
 
 ## 🤝 Contributing & Feedback
 
-Since this package is experimental, all contributions are welcome:
+I never seriously developed a laravel package before and on top of that - this one is highly experimental, so all criticism/contributions are welcome:
 - Report bugs and edge cases in the [Issue Tracker](https://github.com/ValerianMemsk/laravel-semantic-search/issues).
 - Submit Pull Requests for new embedder drivers, performance improvements, or test coverage.
 - Share your experience using MariaDB/MySQL native vectors in real-world workloads!
