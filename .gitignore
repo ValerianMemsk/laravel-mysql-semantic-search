@@ -1,0 +1,16 @@
+/vendor/
+composer.lock
+.phpunit.result.cache
+.phpunit.cache/
+.php-cs-fixer.cache
+.env
+.env.backup
+.env.*.local
+phpunit.xml
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Internal review & notes
+REVIEW_FINDINGS.md
