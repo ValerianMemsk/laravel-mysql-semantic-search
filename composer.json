@@ -1,0 +1,50 @@
+{
+  "name": "valerianmemsk/laravel-semantic-search",
+  "description": "Production-ready Semantic & Hybrid Search with Vector Embeddings for Laravel & MariaDB/MySQL",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Valerian Memsk",
+      "homepage": "https://github.com/ValerianMemsk"
+    }
+  ],
+  "require": {
+    "php": "^8.2|^8.3|^8.4",
+    "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
+  },
+  "suggest": {
+    "laravel/scout": "Required to use SemanticSearchEngine as a Scout driver (^10.0|^11.0).",
+    "filament/filament": "Required to use SemanticSearchPlugin and the admin settings UI (^3.0|^4.0)."
+  },
+  "require-dev": {
+    "laravel/scout": "^10.0|^11.0",
+    "orchestra/testbench": "^8.0|^9.0|^10.0",
+    "phpunit/phpunit": "^10.0|^11.0|^12.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "ValerianMemsk\\SemanticSearch\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "ValerianMemsk\\SemanticSearch\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "ValerianMemsk\\SemanticSearch\\SemanticSearchServiceProvider"
+      ],
+      "aliases": {
+        "SemanticSearch": "ValerianMemsk\\SemanticSearch\\Facades\\SemanticSearch"
+      }
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
