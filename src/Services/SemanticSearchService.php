@@ -86,17 +86,10 @@ class SemanticSearchService
     }
 
     /**
-     * Get the configured or dynamic cosine distance threshold.
+     * Get the configured cosine distance threshold.
      */
     public function getThreshold(): float
     {
-        if (class_exists('App\Facades\Config')) {
-            $dynamic = \App\Facades\Config::get('search.semantic.ollama.threshold');
-            if ($dynamic !== null && $dynamic !== '') {
-                return (float) $dynamic;
-            }
-        }
-
         return (float) config('semantic-search.threshold', 0.49);
     }
 
@@ -213,7 +206,7 @@ class SemanticSearchService
 
         $traits = class_uses_recursive($className);
 
-        return in_array(HasEmbeddings::class, $traits) || in_array(\App\Core\Traits\HasEmbeddings::class, $traits);
+        return in_array(HasEmbeddings::class, $traits);
     }
 
     /**
@@ -222,10 +215,12 @@ class SemanticSearchService
     public function discoverEmbeddableModels(?array $paths = null): array
     {
         $models = [];
-        $paths = $paths ?? config('semantic-search.discovery_paths', [app_path('Models')]);
+        $paths = $paths ?? config('semantic-search.discovery_paths', [
+            function_exists('app_path') ? app_path('Models') : null,
+        ]);
 
         foreach ($paths as $path) {
-            if (! is_dir($path)) {
+            if (! $path || ! is_dir($path)) {
                 continue;
             }
 
@@ -233,17 +228,85 @@ class SemanticSearchService
             $files = $finder->in($path)->files()->name('*.php');
 
             foreach ($files as $file) {
-                $relativePath = str_replace([$path, '/', '\\', '.php'], ['', '\\', '\\', ''], $file->getRealPath());
-                $relativePath = ltrim($relativePath, '\\');
-
-                // Guess namespace from path or composer
-                $className = 'App\\Models\\'.$relativePath;
-                if ($this->isEmbeddable($className)) {
+                $className = $this->extractFullyQualifiedClassName($file->getRealPath());
+                if ($className && $this->isEmbeddable($className)) {
                     $models[] = $className;
                 }
             }
         }
 
         return array_values(array_unique($models));
+    }
+
+    /**
+     * Extract the fully-qualified class name from a PHP source file.
+     */
+    public function extractFullyQualifiedClassName(string $filePath): ?string
+    {
+        $contents = file_get_contents($filePath);
+        if ($contents === false) {
+            return null;
+        }
+
+        $tokens = token_get_all($contents);
+        $namespace = '';
+        $class = '';
+        $count = count($tokens);
+
+        for ($i = 0; $i < $count; $i++) {
+            if ($tokens[$i][0] === T_NAMESPACE) {
+                for ($j = $i + 1; $j < $count; $j++) {
+                    if ($tokens[$j][0] === T_NAME_QUALIFIED || $tokens[$j][0] === T_STRING) {
+                        $namespace .= $tokens[$j][1];
+                    } elseif ($tokens[$j] === '{' || $tokens[$j] === ';') {
+                        break;
+                    }
+                }
+            }
+
+            if ($tokens[$i][0] === T_CLASS) {
+                // Skip `::class` (T_CLASS preceded by T_DOUBLE_COLON).
+                $previous = $this->previousNonWhitespaceToken($tokens, $i);
+                if (is_array($previous) && $previous[0] === T_DOUBLE_COLON) {
+                    continue;
+                }
+
+                for ($j = $i + 1; $j < $count; $j++) {
+                    if ($tokens[$j][0] === T_WHITESPACE) {
+                        continue;
+                    }
+                    if ($tokens[$j][0] === T_STRING) {
+                        $class = $tokens[$j][1];
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        if (empty($class)) {
+            return null;
+        }
+
+        return $namespace ? "{$namespace}\\{$class}" : $class;
+    }
+
+    /**
+     * Get the nearest preceding token that is not whitespace.
+     *
+     * @param  array<int, array|string>  $tokens
+     * @return array|string|null
+     */
+    private function previousNonWhitespaceToken(array $tokens, int $index): array|string|null
+    {
+        for ($i = $index - 1; $i >= 0; $i--) {
+            if (is_array($tokens[$i]) && $tokens[$i][0] === T_WHITESPACE) {
+                continue;
+            }
+
+            return $tokens[$i];
+        }
+
+        return null;
     }
 }

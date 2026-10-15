@@ -3,6 +3,7 @@
 namespace ValerianMemsk\SemanticSearch\Traits;
 
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use ValerianMemsk\SemanticSearch\Jobs\GenerateModelEmbedding;
 use ValerianMemsk\SemanticSearch\Models\EntityEmbedding;
@@ -15,7 +16,7 @@ use ValerianMemsk\SemanticSearch\Models\EntityEmbedding;
 trait HasEmbeddings
 {
     /**
-     * Boot the trait to automatically generate embeddings on save.
+     * Boot the trait to automatically generate embeddings on save and remove on delete.
      */
     public static function bootHasEmbeddings(): void
     {
@@ -29,6 +30,14 @@ trait HasEmbeddings
                 }
 
                 dispatch($job);
+            }
+        });
+
+        static::deleted(function ($model) {
+            try {
+                $model->embedding()->delete();
+            } catch (\Throwable $e) {
+                Log::warning('[Semantic Search] Failed to delete embedding for '.get_class($model).' ID '.$model->getKey().': '.$e->getMessage());
             }
         });
     }

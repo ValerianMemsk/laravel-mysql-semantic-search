@@ -5,7 +5,9 @@ namespace ValerianMemsk\SemanticSearch;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\EngineManager;
 use ValerianMemsk\SemanticSearch\Console\Commands\EmbedModelsCommand;
+use ValerianMemsk\SemanticSearch\Contracts\DictionarySourceContract;
 use ValerianMemsk\SemanticSearch\Contracts\VectorDriverContract;
+use ValerianMemsk\SemanticSearch\Dictionaries\DatabaseDictionary;
 use ValerianMemsk\SemanticSearch\Drivers\MariaDbVectorDriver;
 use ValerianMemsk\SemanticSearch\Drivers\MySqlVectorDriver;
 use ValerianMemsk\SemanticSearch\Embedders\EmbedderManager;
@@ -36,6 +38,8 @@ class SemanticSearchServiceProvider extends ServiceProvider
         $this->app->singleton('semantic-search.embedder-manager', function ($app) {
             return new EmbedderManager($app);
         });
+
+        $this->app->bind(DictionarySourceContract::class, DatabaseDictionary::class);
 
         $this->app->singleton('semantic-search', function ($app) {
             return new SemanticSearchService(

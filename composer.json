@@ -11,18 +11,17 @@
   ],
   "require": {
     "php": "^8.2|^8.3|^8.4",
-    "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
-    "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
-    "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
-    "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
+    "illuminate/contracts": "^12.0|^13.0",
+    "illuminate/database": "^12.0|^13.0",
+    "illuminate/http": "^12.0|^13.0",
+    "illuminate/support": "^12.0|^13.0"
   },
   "suggest": {
-    "laravel/scout": "Required to use SemanticSearchEngine as a Scout driver (^10.0|^11.0).",
-    "filament/filament": "Required to use SemanticSearchPlugin and the admin settings UI (^3.0|^4.0)."
+    "laravel/scout": "Required to use SemanticSearchEngine as a Scout driver (^11.0|^12.0)."
   },
   "require-dev": {
-    "laravel/scout": "^10.0|^11.0",
-    "orchestra/testbench": "^8.0|^9.0|^10.0",
+    "laravel/scout": "^11.0|^12.0",
+    "orchestra/testbench": "^10.0|^11.0",
     "phpunit/phpunit": "^10.0|^11.0|^12.0"
   },
   "autoload": {
@@ -34,6 +33,9 @@
     "psr-4": {
       "ValerianMemsk\\SemanticSearch\\Tests\\": "tests/"
     }
+  },
+  "scripts": {
+    "test": "phpunit"
   },
   "extra": {
     "laravel": {

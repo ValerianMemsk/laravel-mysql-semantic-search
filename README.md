@@ -4,58 +4,43 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/valerianmemsk/laravel-semantic-search.svg?style=flat-square)](https://packagist.org/packages/valerianmemsk/laravel-semantic-search)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE.md)
 
-> ⚠️ **EXPERIMENTAL & WORK-IN-PROGRESS**
-> 
-> This package was extracted from experimental functionality built for a real-world work project. It is currently in **early active development** and has **not been exhaustively tested** across diverse production environments and edge cases.
-> 
-> 💬 **Feedback & Criticism Welcome!** If you spot architectural flaws, edge cases, missing tests, or performance bottlenecks, please [open an issue](https://github.com/ValerianMemsk/laravel-semantic-search/issues) or submit a pull request. Honest critiques and ideas are warmly appreciated!
+> Experimental, work in progress. This started as functionality I built for a work project and later extracted into a package. It hasn't been exhaustively tested across production environments and edge cases.
+>
+> If you find architectural flaws, missing tests, or performance problems, please open an issue or send a PR. Honest criticism is welcome.
 
----
+## Why this package
 
-## 💡 Why This Package?
+Adding vector search to Laravel usually means running a separate vector database (Pinecone, Milvus, Qdrant, Weaviate) or PostgreSQL with `pgvector`.
 
-Adding vector search to Laravel usually means introducing a separate vector database (like Pinecone, Milvus, Qdrant, or Weaviate) or running PostgreSQL with `pgvector`.
+MariaDB 11.7+ and MySQL 9.0+ now have native `VECTOR` columns and distance functions (`VEC_DISTANCE_COSINE`, `VECTOR_DISTANCE`). This package uses those, so you get semantic search inside the database you already run, with no extra infrastructure. It can also combine semantic results with regular keyword search using Reciprocal Rank Fusion (RRF).
 
-However, recent versions of **MariaDB (11.7+)** and **MySQL (9.0+)** introduced native `VECTOR` datatypes and distance functions (`VEC_DISTANCE_COSINE`, `VECTOR_DISTANCE`).
+## Features
 
-This package lets you leverage **native SQL vector search** directly inside your existing MySQL or MariaDB database without adding another infrastructure component. It also combines semantic results with standard keyword search using **Reciprocal Rank Fusion (RRF)** for maximum search precision.
+- Hybrid search: merges semantic similarity with keyword search (Scout or SQL `LIKE`) using RRF.
+- Native SQL vector storage on MariaDB 11.7+ or MySQL 9.0+.
+- Pluggable embedders: Ollama and OpenAI built in, plus any other API or model (Hugging Face, Cohere, Voyage, TEI, ...) through a driver.
+- Scout engine: set `SCOUT_DRIVER=semantic` and it falls back to your normal driver when the embedder is unavailable.
+- Synonym and acronym expansion: a preprocessor that expands abbreviations and domain terms before embedding. The dictionary is swappable.
+- Background ingestion: queued jobs on a model's `saved` event.
 
----
+## Requirements
 
-## ✨ Key Features
-
-- 🧠 **Hybrid Search (RRF)**: Merges semantic vector similarity with traditional keyword search (via Laravel Scout or database `LIKE`) using Reciprocal Rank Fusion.
-- 🗄️ **Native SQL Vector Storage**: Uses MariaDB 11.7+ (`VEC_DISTANCE_COSINE` & `VECTOR(N)`) or MySQL 9.0+ (`VECTOR_DISTANCE`).
-- 🔌 **Pluggable Embedders**:
-  - Built-in default support for local/self-hosted **Ollama** (`bge-m3`, `nomic-embed-text`, etc.) and cloud **OpenAI** (`text-embedding-3-small`, `text-embedding-3-large`)
-  - Easily connect **any** model or API (Hugging Face, Cohere, Voyage, local TEI, etc.) via custom drivers
-- ⚡ **Laravel Scout Engine**: Drop-in driver (`SCOUT_DRIVER=semantic`) with automatic fallback to database or Meilisearch if the embedder is unavailable.
-- 📖 **Synonym & Acronym Expansion**: Preprocessor with in-memory caching to expand abbreviations and domain-specific terminology before embedding.
-- 📦 **Automated Background Ingestion**: Automatically dispatches queued jobs on Eloquent model `saved` events.
-- 🖥️ **Filament Plugin**: Optional Filament v3 panel settings page for managing Ollama endpoints, thresholds, and synonym dictionaries.
-
----
-
-## 📋 Requirements
-
-| Requirement | Minimum Version | Note |
+| Requirement | Minimum version | Note |
 |---|---|---|
-| **PHP** | 8.2+ | |
-| **Laravel** | 10.0, 11.0, 12.0+ | |
-| **MariaDB** or **MySQL** | MariaDB 11.7+ or MySQL 9.0+ | Required for native `VECTOR` type |
-| **Embedder** | Ollama, OpenAI, or any Custom API | Ollama/OpenAI built-in; any API (Hugging Face, Cohere, etc.) supported via driver |
+| PHP | 8.2+ | |
+| Laravel | 12.0 - 13.0 | |
+| MariaDB or MySQL | MariaDB 11.7+ or MySQL 9.0+ | Required for the native `VECTOR` type |
+| Embedder | Ollama, OpenAI, or a custom API | Ollama/OpenAI built in; anything else via a driver |
 
----
+## Quick start
 
-## 🚀 Quick Start
-
-### 1. Install via Composer
+### Install
 
 ```bash
 composer require valerianmemsk/laravel-semantic-search
 ```
 
-### 2. Publish Config & Migrations
+### Publish config and migrations
 
 ```bash
 php artisan vendor:publish --tag="semantic-search-config"
@@ -63,12 +48,10 @@ php artisan vendor:publish --tag="semantic-search-migrations"
 php artisan migrate
 ```
 
-### 3. Configure Environment
-
-Add the following to your `.env` file:
+### Configure environment
 
 ```env
-# Vector Database dialect: 'mariadb' or 'mysql'
+# Vector database dialect: 'mariadb' or 'mysql'
 SEMANTIC_SEARCH_DB_DRIVER=mariadb
 
 # Embedder driver: 'ollama' or 'openai'
@@ -89,13 +72,11 @@ OLLAMA_EMBED_MODEL=bge-m3
 SEMANTIC_SEARCH_THRESHOLD=0.49
 ```
 
----
+## How to use
 
-## 📖 How to Use
+### 1. Prepare your model
 
-### 1. Prepare Your Eloquent Model
-
-Add the `HasEmbeddings` trait to your model and specify which fields should be transformed into semantic vectors:
+Add the `HasEmbeddings` trait and define which fields become the embedding:
 
 ```php
 namespace App\Models;
@@ -108,9 +89,6 @@ class Article extends Model
 {
     use Searchable, HasEmbeddings;
 
-    /**
-     * Define the data that should be converted into an embedding.
-     */
     public function toSemanticSearchArray(): array
     {
         return [
@@ -122,11 +100,11 @@ class Article extends Model
 }
 ```
 
-Whenever this model is saved, an embedding job will automatically be pushed to your queue.
+Saving the model pushes an embedding job to your queue.
 
-### 2. Search via Laravel Scout
+### 2. Search via Scout
 
-Set `SCOUT_DRIVER=semantic` in your `.env` (or `config/scout.php`):
+Set `SCOUT_DRIVER=semantic` in `.env` (or `config/scout.php`):
 
 ```php
 // config/scout.php
@@ -134,51 +112,41 @@ Set `SCOUT_DRIVER=semantic` in your `.env` (or `config/scout.php`):
 'fallback_driver' => 'database',
 ```
 
-Now search just like you normally do with Scout:
+Search as usual:
 
 ```php
 $articles = Article::search('how to optimize database queries')->get();
 ```
 
-Under the hood, this will:
-1. Generate an embedding vector for the search query.
-2. Query the database using cosine distance.
-3. Perform a lexical search using the fallback driver (e.g. database `LIKE`).
-4. Fuse both result sets using Reciprocal Rank Fusion (RRF) to return the most relevant models.
+Behind the scenes it embeds the query, runs a cosine-distance query, runs a lexical search through the fallback driver, then fuses both with RRF.
 
-### 3. Direct Facade Usage (Without Scout)
-
-You can also use the `SemanticSearch` facade directly:
+### 3. Direct facade usage
 
 ```php
 use ValerianMemsk\SemanticSearch\Facades\SemanticSearch;
 use App\Models\Article;
 
-// 1. Get matching IDs ordered by semantic similarity
 $semanticIds = SemanticSearch::searchIds(Article::class, 'machine learning basics', limit: 20);
 
-// 2. Perform hybrid rank fusion with your own custom SQL search
 $keywordIds = Article::where('title', 'like', '%machine learning%')->pluck('id')->toArray();
 $finalRankedIds = SemanticSearch::combineRRF($semanticIds ?? [], $keywordIds);
 ```
 
-### 4. Bulk Generate Embeddings for Existing Data
-
-To generate embeddings for existing records in your database:
+### 4. Bulk-generate embeddings
 
 ```bash
-# Scan and embed all models using HasEmbeddings
+# All models using HasEmbeddings
 php artisan semantic-search:embed
 
-# Or embed a specific model
+# A specific model
 php artisan semantic-search:embed "App\Models\Article"
 ```
 
-### 5. Adding Custom Embedders (e.g. Hugging Face, Cohere)
+### 5. Custom embedders
 
-Ollama and OpenAI are the built-in defaults, but you can plug in **any** embedding API or model (such as Hugging Face Inference API, Text Embeddings Inference (TEI), Cohere, Voyage, or a custom Python service).
+Ollama and OpenAI are built in, but any API or model works (Hugging Face Inference API, Text Embeddings Inference, Cohere, Voyage, a custom Python service, ...).
 
-1. Implement `ValerianMemsk\SemanticSearch\Contracts\EmbedderContract`:
+Implement `ValerianMemsk\SemanticSearch\Contracts\EmbedderContract`:
 
 ```php
 namespace App\Search\Embedders;
@@ -211,7 +179,7 @@ class HuggingFaceEmbedder implements EmbedderContract
 }
 ```
 
-2. Register your custom driver in `AppServiceProvider::boot()`:
+Register it in `AppServiceProvider::boot()`:
 
 ```php
 use ValerianMemsk\SemanticSearch\Embedders\EmbedderManager;
@@ -229,13 +197,38 @@ public function boot(): void
 }
 ```
 
-3. Set `SEMANTIC_SEARCH_DRIVER=huggingface` in your `.env`.
+Then set `SEMANTIC_SEARCH_DRIVER=huggingface` in `.env`.
 
----
+### 6. Custom synonym dictionary
 
-## 🐳 Local Ollama Quickstart (Docker)
+Synonyms map a term to a replacement (for example `ФЛ` → `физическое лицо`) and are applied to query and document text before embedding. By default they come from the `semantic_dictionaries` table (published migration) through the `SemanticDictionary` model, cached in memory.
 
-If you want a local, self-hosted embedding model without sending data to external APIs, add this to your `docker-compose.yml`:
+To use your own source, bind `DictionarySourceContract`:
+
+```php
+use ValerianMemsk\SemanticSearch\Contracts\DictionarySourceContract;
+
+public function register(): void
+{
+    $this->app->bind(DictionarySourceContract::class, function () {
+        return new class implements DictionarySourceContract {
+            public function terms(): iterable
+            {
+                return [
+                    (object) ['term' => 'ФЛ', 'replacement' => 'физическое лицо'],
+                    (object) ['term' => 'CEO', 'replacement' => 'Chief Executive Officer'],
+                ];
+            }
+        };
+    });
+}
+```
+
+`terms()` can return any iterable of objects with `term` and `replacement` properties.
+
+## Local Ollama quickstart (Docker)
+
+To run a self-hosted embedding model without sending data to external APIs:
 
 ```yaml
 services:
@@ -264,46 +257,27 @@ volumes:
   ollama_data:
 ```
 
----
-
-## 🧩 Filament Admin UI (Optional)
-
-If you use [Filament](https://filamentphp.com), register the plugin in your Panel provider to get a visual settings interface:
-
-```php
-use ValerianMemsk\SemanticSearch\Filament\SemanticSearchPlugin;
-
-public function panel(Panel $panel): Panel
-{
-    return $panel
-        // ...
-        ->plugin(
-            SemanticSearchPlugin::make()
-                ->navigationGroup('Settings')
-                ->navigationLabel('Semantic Search')
-        );
-}
-```
-
----
-
-## 🧪 Running Tests
+## Running tests
 
 ```bash
 composer test
 ```
 
----
+No local PHP/Composer? Build the bundled test image and run it in Docker:
 
-## 🤝 Contributing & Feedback
+```bash
+docker build -f Dockerfile.test -t semantic-search-test .
+docker run --rm -v "$PWD":/app semantic-search-test composer test
+```
 
-I never seriously developed a laravel package before and on top of that - this one is highly experimental, so all criticism/contributions are welcome:
-- Report bugs and edge cases in the [Issue Tracker](https://github.com/ValerianMemsk/laravel-semantic-search/issues).
-- Submit Pull Requests for new embedder drivers, performance improvements, or test coverage.
-- Share your experience using MariaDB/MySQL native vectors in real-world workloads!
+## Contributing
 
----
+This is the first Laravel package I've seriously developed, and it came out of a "can this even be done?" experiment rather than a considered "should it be done?" design. Criticism and contributions are welcome:
 
-## 📄 License
+- Report bugs and edge cases in the issue tracker.
+- Send PRs for new embedder drivers, performance work, or test coverage.
+- Tell me how MariaDB/MySQL native vectors behave in real workloads.
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for details.
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).

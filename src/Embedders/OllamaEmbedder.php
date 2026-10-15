@@ -23,26 +23,12 @@ class OllamaEmbedder implements EmbedderContract
 
     public function getUrl(): string
     {
-        if (class_exists('App\Facades\Config')) {
-            $dynamic = \App\Facades\Config::get('search.semantic.ollama.url');
-            if (! empty($dynamic)) {
-                return rtrim($dynamic, '/');
-            }
-        }
-
-        return rtrim($this->url ?? config('semantic-search.drivers.ollama.url', 'http://localhost:11434'), '/');
+        return $this->url;
     }
 
     public function getModel(): string
     {
-        if (class_exists('App\Facades\Config')) {
-            $dynamic = \App\Facades\Config::get('search.semantic.ollama.model');
-            if (! empty($dynamic)) {
-                return $dynamic;
-            }
-        }
-
-        return $this->model ?? config('semantic-search.drivers.ollama.model', 'bge-m3');
+        return $this->model;
     }
 
     /**
@@ -52,12 +38,10 @@ class OllamaEmbedder implements EmbedderContract
      */
     public function embed(string $text): array
     {
-        $url = $this->getUrl();
-        $model = $this->getModel();
-        $endpoint = "{$url}/api/embeddings";
+        $endpoint = "{$this->url}/api/embeddings";
 
         $response = Http::timeout($this->timeout)->post($endpoint, [
-            'model' => $model,
+            'model' => $this->model,
             'prompt' => $text,
         ]);
 

@@ -11,8 +11,8 @@ class RrfTest extends TestCase
 {
     public function test_combine_rrf_ranks_items_present_in_both_lists_higher(): void
     {
-        $embedderManager = $this->createMock(EmbedderManager::class);
-        $vectorDriver = $this->createMock(VectorDriverContract::class);
+        $embedderManager = $this->createStub(EmbedderManager::class);
+        $vectorDriver = $this->createStub(VectorDriverContract::class);
         $service = new SemanticSearchService($embedderManager, $vectorDriver);
 
         $list1 = [10, 20, 30];
@@ -27,8 +27,8 @@ class RrfTest extends TestCase
 
     public function test_combine_rrf_preserves_first_rank_for_top_item(): void
     {
-        $embedderManager = $this->createMock(EmbedderManager::class);
-        $vectorDriver = $this->createMock(VectorDriverContract::class);
+        $embedderManager = $this->createStub(EmbedderManager::class);
+        $vectorDriver = $this->createStub(VectorDriverContract::class);
         $service = new SemanticSearchService($embedderManager, $vectorDriver);
 
         $list1 = [100, 200];

@@ -7,37 +7,41 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         $tableName = config('semantic-search.tables.embeddings', 'entity_embeddings');
         $dimensions = (int) config('semantic-search.dimensions', 1024);
+        $driver = config('semantic-search.database_driver', 'mariadb');
 
         if (! Schema::hasTable($tableName)) {
-            Schema::create($tableName, function (Blueprint $table) use ($dimensions) {
+            Schema::create($tableName, function (Blueprint $table) {
                 $table->id();
                 $table->string('entity_type');
                 $table->unsignedBigInteger('entity_id');
-                $table->rawColumn('embedding', "VECTOR({$dimensions})");
                 $table->timestamps();
-
                 $table->unique(['entity_type', 'entity_id']);
             });
 
-            // MariaDB / MySQL vector index
-            try {
-                DB::statement("ALTER TABLE {$tableName} ADD VECTOR INDEX embedding_vector_idx (embedding)");
-            } catch (\Throwable $e) {
-                // Ignore if vector index is unsupported or already exists
-            }
+            // Laravel's schema builder has no MySQL-compatible VECTOR column type,
+            // so add it via raw DDL. Supported by MariaDB 11.7+ and MySQL 9.0+.
+            DB::statement("ALTER TABLE {$tableName} ADD embedding VECTOR({$dimensions})");
+
+            $this->addVectorIndex($tableName, $driver);
         }
     }
 
-    /**
-     * Reverse the migrations.
-     */
+    protected function addVectorIndex(string $tableName, string $driver): void
+    {
+        try {
+            if ($driver === 'mariadb') {
+                DB::statement("ALTER TABLE {$tableName} ADD VECTOR INDEX embedding_vector_idx (embedding)");
+            }
+            // MySQL 9.0+ vector secondary-index syntax is not portable yet; skip.
+        } catch (\Throwable $e) {
+            // Ignore if the vector index is unsupported or already exists.
+        }
+    }
+
     public function down(): void
     {
         $tableName = config('semantic-search.tables.embeddings', 'entity_embeddings');
