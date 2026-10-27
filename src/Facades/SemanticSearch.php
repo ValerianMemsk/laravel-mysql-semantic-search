@@ -5,7 +5,7 @@ namespace ValerianMemsk\SemanticSearch\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static array|null searchIds(string $modelClass, string $queryText, int $limit = 50)
+ * @method static \ValerianMemsk\SemanticSearch\Data\SearchResult searchIds(string $modelClass, string $queryText, int $limit = 50)
  * @method static array combineRRF(array $list1, array $list2, ?int $k = null)
  * @method static string preprocessQuery(string $queryText)
  * @method static array embedText(string $text, ?string $driver = null)

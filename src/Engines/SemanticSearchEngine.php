@@ -237,11 +237,13 @@ class SemanticSearchEngine extends Engine
 
         $fetchLimit = isset($options['offset']) ? $limit : $limit * 2;
 
-        $ids = SemanticSearch::searchIds($modelClass, $builder->query, $fetchLimit);
+        $result = SemanticSearch::searchIds($modelClass, $builder->query, $fetchLimit);
 
-        if ($ids === null) {
+        if (! $result->success) {
             return null; // Signals fallback
         }
+
+        $ids = $result->ids;
 
         if (isset($options['offset'])) {
             $ids = array_slice($ids, $options['offset'], $limit);

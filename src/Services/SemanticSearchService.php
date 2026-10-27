@@ -9,6 +9,7 @@ use Symfony\Component\Finder\Finder;
 use ValerianMemsk\SemanticSearch\Contracts\EmbedderContract;
 use ValerianMemsk\SemanticSearch\Contracts\QueryPreprocessorContract;
 use ValerianMemsk\SemanticSearch\Contracts\VectorDriverContract;
+use ValerianMemsk\SemanticSearch\Data\SearchResult;
 use ValerianMemsk\SemanticSearch\Embedders\EmbedderManager;
 use ValerianMemsk\SemanticSearch\Models\EntityEmbedding;
 use ValerianMemsk\SemanticSearch\Traits\HasEmbeddings;
@@ -43,23 +44,23 @@ class SemanticSearchService
     /**
      * Search for entities by semantic similarity.
      *
-     * @param  string  $modelClass
-     * @param  string  $queryText
-     * @param  int  $limit
-     * @return array<int|string>|null Returns array of matching model IDs or null on failure/unsupported
+     * @param string $modelClass
+     * @param string $queryText
+     * @param int $limit
+     * @return SearchResult
      */
-    public function searchIds(string $modelClass, string $queryText, int $limit = 50): ?array
+    public function searchIds(string $modelClass, string $queryText, int $limit = 50): SearchResult
     {
         if (! class_exists($modelClass)) {
-            return null;
+            return SearchResult::fail("Model class '{$modelClass}' does not exist.");
         }
 
         if (! $this->isEmbeddable($modelClass)) {
-            return null;
+            return SearchResult::fail("'{$modelClass}' does not use the HasEmbeddings trait.");
         }
 
         if (empty(trim($queryText))) {
-            return null;
+            return SearchResult::fail('Query text is empty.');
         }
 
         try {
@@ -67,7 +68,7 @@ class SemanticSearchService
 
             $exists = $embeddingModel::query()->where('entity_type', $modelClass)->exists();
             if (! $exists) {
-                return null;
+                return SearchResult::fail("No embeddings exist for '{$modelClass}'. Run `semantic-search:embed` first.");
             }
 
             $vector = $this->embedText($queryText);
@@ -76,12 +77,12 @@ class SemanticSearchService
             $query = $embeddingModel::query()->where('entity_type', $modelClass);
             $query = $this->vectorDriver->applyDistanceQuery($query, $vector, $threshold, $limit);
 
-            return $query->pluck('entity_id')->toArray();
+            return SearchResult::ok($query->pluck('entity_id')->toArray());
 
         } catch (Exception $e) {
             Log::warning("[Semantic Search] Failed to search for {$modelClass}: ".$e->getMessage());
 
-            return null;
+            return SearchResult::fail($e->getMessage());
         }
     }
 
@@ -294,7 +295,8 @@ class SemanticSearchService
     /**
      * Get the nearest preceding token that is not whitespace.
      *
-     * @param  array<int, array|string>  $tokens
+     * @param array<int, array|string> $tokens
+     * @param int $index
      * @return array|string|null
      */
     private function previousNonWhitespaceToken(array $tokens, int $index): array|string|null

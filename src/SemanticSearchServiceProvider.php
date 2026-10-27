@@ -5,6 +5,8 @@ namespace ValerianMemsk\SemanticSearch;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\EngineManager;
 use ValerianMemsk\SemanticSearch\Console\Commands\EmbedModelsCommand;
+use ValerianMemsk\SemanticSearch\Console\Commands\ClearCommand;
+use ValerianMemsk\SemanticSearch\Console\Commands\StatusCommand;
 use ValerianMemsk\SemanticSearch\Contracts\DictionarySourceContract;
 use ValerianMemsk\SemanticSearch\Contracts\VectorDriverContract;
 use ValerianMemsk\SemanticSearch\Dictionaries\DatabaseDictionary;
@@ -87,6 +89,8 @@ class SemanticSearchServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 EmbedModelsCommand::class,
+                ClearCommand::class,
+                StatusCommand::class,
             ]);
         }
     }
