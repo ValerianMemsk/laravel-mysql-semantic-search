@@ -1,0 +1,23 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build -f Dockerfile.test -t semantic-search-test .
+
+      - name: Install dependencies
+        run: docker run --rm -v "$PWD":/app semantic-search-test composer install --no-interaction
+
+      - name: Run tests
+        run: docker run --rm -v "$PWD":/app semantic-search-test composer test
